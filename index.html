@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistem Absensi Wajah Online</title>
+  <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --success: #16a34a;
+      --warning: #d97706;
+      --danger: #dc2626;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --text: #1e293b;
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .container {
+      max-width: 900px;
+      width: 100%;
+      background: var(--card);
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    }
+
+    h1 {
+      text-align: center;
+      margin-top: 0;
+      color: var(--primary);
+      font-size: 1.5rem;
+    }
+
+    .status-bar {
+      text-align: center;
+      padding: 12px;
+      margin-bottom: 18px;
+      border-radius: 8px;
+      background: #e0f2fe;
+      color: #0369a1;
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 768px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .video-wrapper {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      background: #0f172a;
+      border-radius: 10px;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    video, canvas {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1); /* Efek cermin agar natural */
+    }
+
+    .panel {
+      background: #f1f5f9;
+      padding: 18px;
+      border-radius: 10px;
+    }
+
+    .panel h3 {
+      margin-top: 0;
+      font-size: 1.05rem;
+      border-bottom: 2px solid #cbd5e1;
+      padding-bottom: 8px;
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.9rem;
+      margin-bottom: 5px;
+      font-weight: 600;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 0.95rem;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 11px;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.2s;
+      margin-bottom: 10px;
+      color: #fff;
+    }
+
+    .btn:disabled {
+      background: #94a3b8;
+      cursor: not-allowed;
+    }
+
+    .btn-primary { background: var(--primary); }
+    .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+
+    .btn-success { background: var(--success); }
+    .btn-success:hover:not(:disabled) { background: #15803d; }
+
+    .btn-warning { background: var(--warning); }
+    .btn-warning:hover:not(:disabled) { background: #b45309; }
+
+    .btn-danger { background: var(--danger); }
+    .btn-danger:hover:not(:disabled) { background: #b91c1c; }
+
+    .table-responsive {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 0.9rem;
+    }
+
+    th, td {
+      border: 1px solid #cbd5e1;
+      padding: 10px;
+      text-align: left;
+    }
+
+    th {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    tr:nth-child(even) {
+      background: #f8fafc;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>Sistem Absensi Wajah Online</h1>
+  <div id="status" class="status-bar">Memuat model AI pengenal wajah... Mohon tunggu.</div>
+
+  <div class="grid">
+    <!-- Area Kamera -->
+    <div>
+      <div class="video-wrapper">
+        <video id="video" autoplay muted playsinline></video>
+        <canvas id="overlay"></canvas>
+      </div>
+      <button id="btnStartCam" class="btn btn-warning" style="margin-top: 10px;">
+        Aktifkan / Muat Ulang Kamera
+      </button>
+      <p style="font-size: 0.85rem; color: #64748b; text-align: center; margin: 4px 0 0;">
+        Pastikan halaman dibuka lewat <b>HTTPS</b> dan izin kamera diaktifkan.
+      </p>
+    </div>
+
+    <!-- Area Kontrol -->
+    <div class="panel">
+      <h3>1. Pendaftaran Wajah Baru</h3>
+      <div class="form-group">
+        <label for="userName">Nama Lengkap / NIS / NIP</label>
+        <input type="text" id="userName" placeholder="Contoh: Budi Santoso - 10293">
+      </div>
+      <button id="btnRegister" class="btn btn-primary" disabled>Daftarkan Wajah</button>
+
+      <h3 style="margin-top: 20px;">2. Presensi / Absen</h3>
+      <button id="btnAbsen" class="btn btn-success" disabled>Scan & Absen Sekarang</button>
+      <button id="btnReset" class="btn btn-danger">Reset Semua Data Lokal</button>
+    </div>
+  </div>
+
+  <!-- Tabel Riwayat Absensi -->
+  <h3 style="margin-top: 24px;">Riwayat Kehadiran Hari Ini</h3>
+  <div class="table-responsive">
+    <table>
+      <thead>
+        <tr>
+          <th>No</th>
+          <th>Nama / ID</th>
+          <th>Waktu Absen</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="attendanceTable">
+        <tr>
+          <td colspan="4" style="text-align: center;">Belum ada data absensi.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  const video = document.getElementById('video');
+  const overlay = document.getElementById('overlay');
+  const statusEl = document.getElementById('status');
+  const btnStartCam = document.getElementById('btnStartCam');
+  const btnRegister = document.getElementById('btnRegister');
+  const btnAbsen = document.getElementById('btnAbsen');
+  const btnReset = document.getElementById('btnReset');
+  const userNameInput = document.getElementById('userName');
+  const attendanceTable = document.getElementById('attendanceTable');
+
+  const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+
+  let labeledDescriptors = [];
+  let attendanceLog = JSON.parse(localStorage.getItem('attendanceLog')) || [];
+  let currentStream = null;
+  let detectionInterval = null;
+  let modelsLoaded = false;
+
+  function setStatus(text, type = 'info') {
+    statusEl.innerText = text;
+    if (type === 'success') {
+      statusEl.style.background = '#dcfce7';
+      statusEl.style.color = '#166534';
+    } else if (type === 'error') {
+      statusEl.style.background = '#fee2e2';
+      statusEl.style.color = '#991b1b';
+    } else {
+      statusEl.style.background = '#e0f2fe';
+      statusEl.style.color = '#0369a1';
+    }
+  }
+
+  // 1. Inisialisasi Model AI
+  async function init() {
+    try {
+      await Promise.all([
+        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+      ]);
+      modelsLoaded = true;
+      loadSavedFaces();
+      renderAttendanceTable();
+      setStatus('Model AI siap! Mengaktifkan kamera...', 'info');
+      await startCamera();
+    } catch (err) {
+      setStatus('Gagal memuat model AI: ' + err.message, 'error');
+    }
+  }
+
+  // 2. Fungsi Kamera dengan Fallback & Diagnosa Error
+  async function startCamera() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setStatus('Kamera tidak didukung. Pastikan membuka halaman lewat HTTPS (bukan HTTP/file lokal).', 'error');
+      return;
+    }
+
+    // Hentikan stream lama jika ada
+    if (currentStream) {
+      currentStream.getTracks().forEach(track => track.stop());
+    }
+
+    try {
+      // Coba kamera depan terlebih dahulu
+      currentStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: 'user' },
+          width: { ideal: 640 },
+          height: { ideal: 480 }
+        },
+        audio: false
+      });
+    } catch (err) {
+      // Fallback ke konfigurasi kamera paling dasar jika constraint ditolak
+      try {
+        currentStream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false
+        });
+      } catch (fallbackErr) {
+        handleCameraError(fallbackErr);
+        return;
+      }
+    }
+
+    video.srcObject = currentStream;
+    try {
+      await video.play();
+      setStatus('Kamera aktif & Sistem Siap Digunakan!', 'success');
+      if (modelsLoaded) {
+        btnRegister.disabled = false;
+        btnAbsen.disabled = false;
+      }
+    } catch (playErr) {
+      setStatus('Klik tombol "Aktifkan / Muat Ulang Kamera" untuk memulai video.', 'error');
+    }
+  }
+
+  function handleCameraError(err) {
+    let pesan = 'Gagal mengakses kamera.';
+    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+      pesan = 'Izin kamera ditolak. Klik ikon gembok di address bar browser -> Izinkan Kamera -> Muat ulang.';
+    } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+      pesan = 'Kamera tidak ditemukan pada perangkat ini.';
+    } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+      pesan = 'Kamera sedang dipakai oleh aplikasi/tab lain. Tutup aplikasi lain lalu coba lagi.';
+    } else {
+      pesan = 'Error kamera (' + err.name + '): ' + err.message;
+    }
+    setStatus(pesan, 'error');
+  }
+
+  // Tombol manual aktivasi kamera
+  btnStartCam.addEventListener('click', startCamera);
+
+  // 3. Deteksi Kotak Wajah Real-time
+  video.addEventListener('loadedmetadata', () => {
+    if (detectionInterval) clearInterval(detectionInterval);
+
+    detectionInterval = setInterval(async () => {
+      if (!modelsLoaded || video.paused || video.ended) return;
+
+      const displaySize = { width: video.clientWidth, height
